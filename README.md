@@ -42,6 +42,8 @@ User reporting: http://localhost:3000
 Police dashboard: http://localhost:3000/police
 
 ## Folder Structure:
+
+```
 crime-alert-website/
 │
 ├── static/
@@ -53,3 +55,4 @@ crime-alert-website/
 ├── app.py                # Flask backend
 ├── README.md
 └── requirements.txt      # Optional: List of dependencies
+```
