@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Police Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f1f1f1;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .notification {
+      background: #ffcc00;
+      color: black;
+      padding: 10px;
+      margin-bottom: 20px;
+      text-align: center;
+      font-weight: bold;
+      border-radius: 5px;
+      display: none;
+    }
+    .tabs {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .tab-btn {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 20px;
+      margin: 0 5px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .tab-btn:hover {
+      background-color: #45a049;
+    }
+    .tab-btn.active {
+      background-color: #2E8B57;
+    }
+    .report {
+      background: white;
+      padding: 10px;
+      margin: 10px auto;
+      max-width: 600px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    iframe {
+      width: 100%;
+      height: 300px;
+      border: none;
+      margin-top: 10px;
+    }
+    .resolved-btn {
+      background-color: #4CAF50;
+      color: white;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .resolved-btn:hover {
+      background-color: #45a049;
+    }
+    .resolved-note {
+      color: green;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Police Crime Reports</h1>
+  <div class="notification" id="notification">🔔 New Crime Report Received!</div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showReports('pending')">Unresolved Reports</button>
+    <button class="tab-btn" onclick="showReports('resolved')">Resolved Reports</button>
+  </div>
+
+  <!-- Report Container -->
+  <div id="reports"></div>
+
+  <!-- Notification sound -->
+  <audio id="ding-sound" src="C:/Users/Gautham R G/Desktop/crime-alert-website/church-bell-6737.mp3" preload="auto"></audio>
+
+  <script>
+    let lastReportCount = 0;
+    let currentTab = 'pending'; // default
+
+    async function fetchReports() {
+      const response = await fetch('http://localhost:3000/reports');
+      const reports = await response.json();
+
+      if (reports.length > lastReportCount) {
+        document.getElementById('notification').style.display = 'block';
+        document.getElementById('ding-sound').play();
+        setTimeout(() => {
+          document.getElementById('notification').style.display = 'none';
+        }, 3000);
+      }
+
+      lastReportCount = reports.length;
+
+      displayReports(reports, currentTab);
+    }
+
+    function showReports(type) {
+      currentTab = type;
+      const tabBtns = document.querySelectorAll('.tab-btn');
+
+      tabBtns.forEach(btn => btn.classList.remove('active'));
+      const activeTab = document.querySelector(`button[onclick="showReports('${type}')"]`);
+      if (activeTab) activeTab.classList.add('active');
+
+      fetch('http://localhost:3000/reports')
+        .then(response => response.json())
+        .then(reports => {
+          displayReports(reports, type);
+        });
+    }
+
+    function displayReports(reports, type) {
+      const reportsDiv = document.getElementById('reports');
+      reportsDiv.innerHTML = '';
+
+      reports.forEach(report => {
+        const isResolved = report.resolved;
+        if ((type === 'pending' && !isResolved) || (type === 'resolved' && isResolved)) {
+          const div = document.createElement('div');
+          div.className = 'report';
+
+          let resolvedContent = '';
+          if (isResolved) {
+            resolvedContent = `
+              <p class="resolved-note">✅ Resolved at: ${new Date(report.resolvedAt).toLocaleString()}</p>
+              <p><strong>Notes:</strong> ${report.notes}</p>
+            `;
+          } else {
+            resolvedContent = `
+              <button class="resolved-btn" onclick="markAsResolved('${report.timestamp}', this)">Mark as Resolved</button>
+            `;
+          }
+
+          div.innerHTML = `
+            <p><strong>Time:</strong> ${new Date(report.timestamp).toLocaleString()}</p>
+            <p><strong>Location:</strong> ${report.latitude}, ${report.longitude}</p>
+            <img src="http://localhost:3000/${report.photoPath}" alt="Crime Photo" width="300">
+            <iframe src="https://www.google.com/maps?q=${report.latitude},${report.longitude}&hl=es;z=14&output=embed" loading="lazy"></iframe>
+            ${resolvedContent}
+          `;
+          reportsDiv.appendChild(div);
+        }
+      });
+    }
+
+    function markAsResolved(timestamp, button) {
+      fetch(`http://localhost:3000/reports/${timestamp}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: 'Resolved by police.' })
+      })
+      .then(response => {
+        if (!response.ok) throw new Error('Failed to resolve');
+        return response.text();
+      })
+      .then(() => {
+        fetchReports(); // refresh data
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Could not mark as resolved.');
+      });
+    }
+
+    // Start with the first fetch and auto-refresh every 5 seconds
+    fetchReports();
+    setInterval(fetchReports, 5000);
+  </script>
+</body>
+</html>
